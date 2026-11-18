@@ -24,6 +24,26 @@ case "${LUNARIS_BUILD_VARIANT:-userdebug}" in
   *) echo "LUNARIS_BUILD_VARIANT must be user, userdebug or eng." >&2; exit 1 ;;
 esac
 
+# Fail before the costly build if ServerHive is still compiling an old Coral checkout.
+# The pre-fix vendor_internal_prop macro blocks the system_ext Oslo application.
+oslo_policy="device/google/coral/sepolicy/system_ext/public/property.te"
+expected_oslo='system_restricted_prop(pixel_oslo_debug_prop)'
+if ! grep -Fxq "$expected_oslo" "$oslo_policy"; then
+  echo "ERROR: Stale Coral device policy at $oslo_policy" >&2
+  echo "Expected: $expected_oslo" >&2
+  echo "Found:" >&2
+  sed -n '1,8p' "$oslo_policy" >&2
+  echo "Re-sync the wip/android16-hardware-features device tree before building." >&2
+  exit 1
+fi
+if [[ "${LUNARIS_BUILD_VARIANT:-userdebug}" != "user" ]]; then
+  if ! grep -Fq 'include device/google/coral/debug/lunaris_development_adb.mk' device/google/coral/lineage_coral.mk; then
+    echo "ERROR: Stale Coral device tree: missing Lunaris diagnostic ADB integration." >&2
+    exit 1
+  fi
+fi
+echo "PASS: Synced Coral SELinux policy and diagnostic ADB integration." >&2
+
 export WITH_GMS="${WITH_GMS:-true}"
 export WITH_GMS_COMMS_SUITE="${WITH_GMS_COMMS_SUITE:-false}"
 export WITH_PIXEL_LAUNCHER="${WITH_PIXEL_LAUNCHER:-false}"
