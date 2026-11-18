@@ -222,8 +222,30 @@ def verify_coral_about_phone_output(root, output):
     print("PASS: Settings.apk contains genuine Pixel 4 XL About Phone specs.", flush=True)
 
 
+def verify_motion_sense_build_properties(output):
+    """Verify the Soli gates in the actual images, not only Make declarations."""
+    required = (
+        ("vendor", "ro.vendor.aware_available", "true"),
+        ("product", "pixel.oslo.allowed_override", "1"),
+    )
+    for partition, key, expected in required:
+        props = output / partition / "build.prop"
+        if not props.is_file():
+            raise FileNotFoundError("Missing built property file: " + str(props))
+        values = [line.split("=", 1)[1].strip()
+                  for line in props.read_text().splitlines()
+                  if line.startswith(key + "=")]
+        if values != [expected]:
+            raise ValueError(
+                "Motion Sense disabled: expected exactly one " + key + "="
+                + expected + " in " + str(props) + "; got " + repr(values)
+            )
+    print("PASS: Built vendor Soli support and product country override.", flush=True)
+
+
 def verify_output(root, product_out):
     output = product_out.resolve()
+    verify_motion_sense_build_properties(output)
     verify_camera(root, output)
     verify_coral_about_phone_output(root, output)
     face = output / "vendor/bin/hw/android.hardware.biometrics.face@1.0-service.google"
