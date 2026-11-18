@@ -42,6 +42,11 @@ if [[ "${LUNARIS_BUILD_VARIANT:-userdebug}" != "user" ]]; then
     exit 1
   fi
 fi
+if ! grep -Fxq 'TARGET_FACE_UNLOCK_SUPPORTED := false' device/google/coral/lineage_coral.mk; then
+  echo "ERROR: Coral still enables Lunaris 2D FaceUnlock; sync the 3D Face ID device fix." >&2
+  exit 1
+fi
+echo "PASS: Coral hardware face selected; Lunaris software FaceUnlock disabled." >&2
 echo "PASS: Synced Coral SELinux policy and diagnostic ADB integration." >&2
 
 export WITH_GMS="${WITH_GMS:-true}"
@@ -65,11 +70,11 @@ set -o pipefail
 lunch "lineage_coral-bp4a-${LUNARIS_BUILD_VARIANT:-userdebug}"
 out_product="$(get_build_var PRODUCT_OUT)"
 
-# Avoid packaging retired camera apps left behind by an earlier output.
+# Remove stale camera and 2D FaceUnlock APKs from an earlier output.
 for partition in system system_ext product vendor; do
-  for app in Aperture Camera2; do
+  for app in Aperture Camera2 FaceUnlock; do
     if [[ -d "$out_product/$partition/app/$app" || -d "$out_product/$partition/priv-app/$app" ]]; then
-      echo "Cleaning stale $app output before installing GCam."
+      echo "Cleaning stale $app output before installing GCam and hardware 3D Face ID."
       m installclean
       break 2
     fi
