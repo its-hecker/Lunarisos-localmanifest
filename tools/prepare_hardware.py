@@ -49,9 +49,12 @@ def prepare_lunaris_property_partitions(root):
 def prepare_android16_source_compat(root):
     """Guarded checkout-only repairs for the pinned A16 QPR2 source combination.
 
-    Keep these patches in Lunaris, rather than changing the Face ID or Motion
-    Sense plugin repositories shared with other ROMs. Both are repeat-safe.
+    Keep these patches in Lunaris, rather than changing the shared Face ID,
+    Motion Sense and KernelSU Next plugin repositories. All are repeat-safe.
     """
+    kernel_types = root / "kernel/google/msm-4.14/include/uapi/linux/types.h"
+    if "typedef unsigned __poll_t;" not in kernel_types.read_text():
+        raise ValueError("KernelSU poll compatibility requires floral's existing __poll_t typedef.")
     patches = (
         (
             root / "system/libfmq/include/fmq/MessageQueueBase.h",
@@ -69,6 +72,14 @@ def prepare_android16_source_compat(root):
             "        preference.applyIlloColors();",
             "        // Motion Sense glow tint is applied by the OnBindListener below.",
             "Lunaris SettingsLib IllustrationPreference API compatibility",
+        ),
+        (
+            root / "kernel/google/msm-4.14/drivers/kernelsu/infra/event_queue.h",
+            """#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
+typedef unsigned int __poll_t;
+#endif""",
+            """/* __poll_t is already provided by this floral kernel's linux/types.h. */""",
+            "KernelSU Next legacy event queue poll typedef compatibility",
         ),
     )
     for path, old, new, label in patches:
