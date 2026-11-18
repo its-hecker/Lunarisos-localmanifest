@@ -141,6 +141,19 @@ def verify_output(root, product_out):
     face = output / "vendor/bin/hw/android.hardware.biometrics.face@1.0-service.google"
     if not face.is_file():
         raise FileNotFoundError("Missing hardware Face HAL: " + str(face))
+    # The Lunaris software FaceUnlock APK must never coexist with Google's
+    # IR/Citadel hardware face provider. Checking packaged output catches a
+    # stale install that remains after disabling TARGET_FACE_UNLOCK_SUPPORTED.
+    software_face = [
+        str(path)
+        for partition in ("system", "system_ext", "product", "vendor")
+        for path in (output / partition).rglob("FaceUnlock.apk")
+    ]
+    if software_face:
+        raise ValueError(
+            "Software 2D FaceUnlock conflicts with Floral 3D HAL; "
+            "run m installclean and rebuild: " + ", ".join(software_face)
+        )
     system_ext = output / "system_ext"
     for filename in ("FloralOsloFeedback.apk", "FloralMotionSenseSettings.apk"):
         if not any(system_ext.rglob(filename)):
