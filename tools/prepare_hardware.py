@@ -184,9 +184,42 @@ def prepare(root, offline=False):
           flush=True)
 
 
+def verify_coral_about_phone_output(root, output):
+    """Verify packaged Settings resources, not just checked-out source strings."""
+    settings_apk = output / "system_ext/priv-app/Settings/Settings.apk"
+    if not settings_apk.is_file():
+        raise FileNotFoundError("Missing built Settings APK: " + str(settings_apk))
+    aapt2 = output.parents[2] / "host/linux-x86/bin/aapt2"
+    if not aapt2.is_file():
+        print("NOTE: aapt2 unavailable; built Settings resource inspection skipped.", flush=True)
+        return
+    dump = subprocess.run(
+        [str(aapt2), "dump", "resources", "--values", str(settings_apk)],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    overlay = root / (
+        "device/google/coral/overlay/packages/apps/Settings/"
+        "res/values/lunaris_coral_specs.xml"
+    )
+    values = {
+        item.get("name"): item.text
+        for item in ET.parse(overlay).getroot().findall("string")
+    }
+    placeholders = ("ICorn 10 Pro Max", "Chicken Nuggets® 52",
+                    "15000 mAh", "Cathode Ray Tube 24hz")
+    for name, value in values.items():
+        if f"string/{name}" not in dump or value not in dump:
+            raise ValueError("Built Settings.apk lacks Coral About Phone value: "
+                             + name + "=" + str(value))
+    if any(value in dump for value in placeholders):
+        raise ValueError("Built Settings.apk still contains Lunaris joke About Phone values.")
+    print("PASS: Settings.apk contains genuine Pixel 4 XL About Phone specs.", flush=True)
+
+
 def verify_output(root, product_out):
     output = product_out.resolve()
     verify_camera(root, output)
+    verify_coral_about_phone_output(root, output)
     face = output / "vendor/bin/hw/android.hardware.biometrics.face@1.0-service.google"
     if not face.is_file():
         raise FileNotFoundError("Missing hardware Face HAL: " + str(face))
