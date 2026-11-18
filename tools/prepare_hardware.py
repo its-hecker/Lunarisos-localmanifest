@@ -129,6 +129,12 @@ typedef unsigned int __poll_t;
             """/* __poll_t is already provided by this floral kernel's linux/types.h. */""",
             "KernelSU Next legacy event queue poll typedef compatibility",
         ),
+        (
+            root / "kernel/google/msm-4.14/drivers/kernelsu/supercall/dispatch.c",
+            '#include <linux/thread_info.h>\n\n#include "uapi/supercall.h"',
+            '#include <linux/thread_info.h>\n#include <linux/sched/signal.h>\n\n#include "uapi/supercall.h"',
+            "KernelSU Next process-group and tasklist declarations for floral 4.14",
+        ),
     )
     for path, old, new, label in patches:
         original = path.read_text()
