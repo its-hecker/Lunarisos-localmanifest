@@ -1,41 +1,61 @@
-# LunarisOS 16.2 for Google Pixel 4 XL (coral)
+# LunarisOS 16.2 for Pixel 4 XL (coral) — Android 16 hardware feature branch
 
-Android 16 QPR2 port, maintained by Hecker.
+This `feat/android16-hardware-features` manifest selects the experimental Coral
+device tree with 3D Face Unlock, Motion Sense and original Google Camera
+packaging. The ordinary `main` manifest and `lunaris-16.2` device tree remain
+unchanged for builders who want the previous base.
 
-## Base
+## Source and integration
 
-- ROM: `Lunaris-AOSP/android` branch `16.2`.
-- Device tree: `its-hecker/lunairs-coral-dt` branch `lunaris-16.2`, imported from `LineageOS/android_device_google_coral` `lineage-23.2`.
-- Vendor: `its-hecker/lunaris-coral-vendor` branch `lunaris-16.2`, imported from `TheMuppets/proprietary_vendor_google_coral` `lineage-23.2`. LFS files are mirrored into GitHub LFS.
-- Kernel: `its-hecker/lunaris-coral-kernel` branch `lunaris-16.2`, imported from `LineageOS/android_kernel_google_msm-4.14` `lineage-23.2`.
-- KernelSU Next: integrated into the 4.14 kernel using the pinned legacy submodule; XML enables submodule syncing.
-- The `lineage_coral` lunch product and the `bp4a` release come from the matching Android 16 sources.
+- LunarisOS: `Lunaris-AOSP/android` branch `16.2` (Android 16 QPR2).
+- Device: `its-hecker/lunairs-coral-dt` branch
+  `wip/android16-hardware-features`, based on LineageOS 23.2.
+- Vendor: `its-hecker/lunaris-coral-vendor` branch `lunaris-16.2`.
+- Kernel: `its-hecker/lunaris-coral-kernel` branch `lunaris-16.2`,
+  with KernelSU Next's legacy 4.14 submodule.
+- Face: the pinned `floral-3D-faceid-plugin` source and its verified legacy
+  Face HAL, Citadel and camera libraries; the exact HIDL framework patch sites
+  were compared against LunarisOS 16.2.
+- Motion Sense: the pinned `floral-motionsense-plugin` source with standalone
+  Settings, Oslo bridge, SystemUI overlay and scoped policies. The original
+  radar firmware, CHRE and calibration remain from the LineageOS device/vendor.
+- GCam: the original signed Google Camera 8.7.250 split set, including startup
+  JNI, imported using the checksum-pinned package from HeckerOS/Infinity-X.
+  This is the Camera *app*, not merely PixelCameraServices.
 
-## Build on ServerHive
-
-Run commands from a separate fresh checkout; do not mix this with Android 17 projects.
+## Fresh build on ServerHive
 
 ```bash
 mkdir -p ~/lunaris-coral
 cd ~/lunaris-coral
 repo init -u https://github.com/Lunaris-AOSP/android.git -b 16.2 --git-lfs
-git clone -b main https://github.com/its-hecker/Lunarisos-localmanifest.git .repo/local_manifests
+git clone -b feat/android16-hardware-features https://github.com/its-hecker/Lunarisos-localmanifest.git .repo/local_manifests
 repo sync -c --fail-fast --no-clone-bundle --no-tags -j4
-bash .repo/local_manifests/build.sh 2>&1 | tee ~/lunaris-coral-build.log
+bash .repo/local_manifests/build.sh 2>&1 | tee ~/lunaris-coral-hardware.log
 ```
 
-The script selects `lineage_coral-bp4a-userdebug` and `m bacon`. Set `LUNARIS_BUILD_VARIANT=user` for a release variant. The default is a GMS-enabled build (`WITH_GMS=true`).
+Before lunch, `build.sh` downloads and verifies the pinned Face/Motion native
+payloads, refuses unrecognized framework HIDL methods, applies the guarded
+face startup/challenge/enrollment fixes, generates biometric and SystemUI
+overlays, and retrieves/verifies all ten original GCam APKs. It then uses
+`lineage_coral-bp4a-userdebug` and `m bacon`. Build and package checks fail
+rather than silently shipping missing Face/Motion/Camera components.
 
-## Hardware feature status and precautions
+Set `LUNARIS_BUILD_VARIANT=user` for a release-style build. GMS defaults to
+`WITH_GMS=true`. To verify a previously fetched cache without networking, run
+`python3 .repo/local_manifests/tools/prepare_hardware.py --offline`.
 
-- **Base camera HAL, PixelCameraServices, FaceAuth firmware and Oslo sensor firmware:** inherited from the 23.2 device and proprietary vendor sources; physical operation must still be tested.
-- **KernelSU Next:** source-integration present; only a complete build and a physical device test can confirm that the kernel boots and grants root correctly.
-- **3D Face Unlock:** Android 17 plugin checked out at `vendor/hecker/floral/faceid` as a reference, but its framework patches are explicitly Android 17-specific. Not yet integrated/verified for Android 16.
-- **Motion Sense:** Android 17 plugin checked out at `vendor/hecker/floral/motionsense` as a reference. Android 16 SystemUI interface and SEPolicy compatibility still need validation. Not yet enabled in the stable device tree.
-- **GCam:** Google's camera hardware services are in the vendor tree, but they are not the Google Camera app. Enabling GMS alone does **not** guarantee that the GCam APK is installed. GCam app packaging and on-device camera tests remain pending.
+## Validation status
 
-Hardware integration is staged on the separate device tree branch `wip/android16-hardware-features`; the stable `lunaris-16.2` branch is kept buildable without requiring the Android 17 plugins. Do not release or claim all features working until the Android 16 integration builds and passes phone testing.
+**Source integration committed; full ROM build and device acceptance are not
+yet confirmed.** Matching Android 16 HIDL methods and the presence of firmware,
+sensor policy and SystemUI allowlist are source-level checks, not evidence that
+biometric enrollment, secure authentication, radar gestures or GCam operate
+on the handset. Do not label the ROM official on this evidence alone.
 
-## Notes
+After a successful build, flash only with your usual backup/recovery procedure.
+Test Face enrollment, screen unlock and removal; reach/silence/skip gestures,
+country settings and sensor permission; and still/photo/portrait/video/flash
+in Google Camera. Collect `adb logcat -b all` if one feature fails.
 
-The device source repository is intentionally spelled `lunairs-coral-dt` to match the repository name provided by Hecker. When updating, use `repo sync` and ensure KernelSU Next's submodule is present; the local manifest specifies `sync-s=\"true\"`. Do not import Android 17 framework/system vendor overlays directly.
+The 4.14 KernelSU Next implementation is unchanged by this feature branch.

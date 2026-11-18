@@ -7,11 +7,14 @@ if [[ ! -d .repo || ! -f build/envsetup.sh ]]; then
 fi
 
 for p in device/google/coral/lineage_coral.mk \
+         device/google/coral/camera/camera.mk \
          vendor/google/coral/coral-vendor.mk \
          kernel/google/msm-4.14/Makefile \
-         packages/apps/ElmyraService; do
+         packages/apps/ElmyraService \
+         vendor/hecker/floral/faceid/faceid.mk \
+         vendor/hecker/floral/motionsense/motionsense.mk; do
   if [[ ! -e "$p" ]]; then
-    echo "Missing $p; check that repo sync finished successfully." >&2
+    echo "Missing $p; check that repo sync completed with the feature manifest." >&2
     exit 1
   fi
 done
@@ -30,6 +33,23 @@ if command -v git-lfs >/dev/null 2>&1; then
   git -C vendor/google/coral lfs pull
 fi
 
+here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+python3 "$here/tools/prepare_hardware.py"
+
 source build/envsetup.sh
 lunch "lineage_coral-bp4a-${LUNARIS_BUILD_VARIANT:-userdebug}"
+out_product="$(get_build_var PRODUCT_OUT)"
+
+# Avoid packaging retired camera apps left behind by an earlier output.
+for partition in system system_ext product vendor; do
+  for app in Aperture Camera2; do
+    if [[ -d "$out_product/$partition/app/$app" || -d "$out_product/$partition/priv-app/$app" ]]; then
+      echo "Cleaning stale $app output before installing GCam."
+      m installclean
+      break 2
+    fi
+  done
+done
+
 m bacon
+python3 "$here/tools/prepare_hardware.py" --post-build "$out_product"

@@ -6,7 +6,7 @@
   <project name="its-hecker/lunairs-coral-dt"
            path="device/google/coral"
            remote="hecker-lunaris"
-           revision="refs/heads/lunaris-16.2" />
+           revision="refs/heads/wip/android16-hardware-features" />
 
   <project name="its-hecker/lunaris-coral-vendor"
            path="vendor/google/coral"
@@ -24,8 +24,7 @@
            remote="lineage-coral"
            revision="refs/heads/lineage-23.2" />
 
-  <!-- Android 17 integration reference only: these plugins must be
-       adapted to the Lunaris 16.2 framework before being inherited. -->
+  <!-- Opt-in Android 16 integration, prepared and checked before lunch. -->
   <project name="its-hecker/floral-3D-faceid-plugin"
            path="vendor/hecker/floral/faceid"
            remote="hecker-lunaris"
