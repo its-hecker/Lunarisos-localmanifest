@@ -46,6 +46,20 @@ if ! grep -Fxq 'TARGET_FACE_UNLOCK_SUPPORTED := false' device/google/coral/linea
   echo "ERROR: Coral still enables Lunaris 2D FaceUnlock; sync the 3D Face ID device fix." >&2
   exit 1
 fi
+# A missing vendor_init rule silently blocks ro.vendor.aware_available at boot.
+# If Oslo is unavailable, Settings disables Motion Sense even though the APK builds.
+if ! grep -Fxq 'set_prop(vendor_init, vendor_aware_available_prop)' \
+  device/google/coral/sepolicy/vendor/google/vendor_init.te; then
+  echo "ERROR: Missing Oslo vendor_init property permission; re-sync Coral device tree." >&2
+  exit 1
+fi
+if ! grep -Fxq 'FLORAL_MOTION_COUNTRY_OVERRIDE := true' \
+  device/google/coral/lineage_coral.mk; then
+  echo "ERROR: Coral region override missing; re-sync Coral device tree." >&2
+  exit 1
+fi
+echo "PASS: Oslo availability SELinux rule and region override." >&2
+
 echo "PASS: Coral hardware face selected; Lunaris software FaceUnlock disabled." >&2
 echo "PASS: Synced Coral SELinux policy and diagnostic ADB integration." >&2
 
