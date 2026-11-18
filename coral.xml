@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="hecker-lunaris" fetch="https://github.com/" />
+  <remote name="lineage-coral" fetch="https://github.com/" />
+
+  <project name="its-hecker/lunairs-coral-dt"
+           path="device/google/coral"
+           remote="hecker-lunaris"
+           revision="refs/heads/lunaris-16.2" />
+
+  <project name="its-hecker/lunaris-coral-vendor"
+           path="vendor/google/coral"
+           remote="hecker-lunaris"
+           revision="refs/heads/lunaris-16.2" />
+
+  <project name="its-hecker/lunaris-coral-kernel"
+           path="kernel/google/msm-4.14"
+           remote="hecker-lunaris"
+           revision="refs/heads/lunaris-16.2" />
+
+  <project name="LineageOS/android_packages_apps_ElmyraService"
+           path="packages/apps/ElmyraService"
+           remote="lineage-coral"
+           revision="refs/heads/lineage-23.2" />
+
+  <!-- Android 17 integration reference only: these plugins must be
+       adapted to the Lunaris 16.2 framework before being inherited. -->
+  <project name="its-hecker/floral-3D-faceid-plugin"
+           path="vendor/hecker/floral/faceid"
+           remote="hecker-lunaris"
+           revision="refs/heads/main" />
+  <project name="its-hecker/floral-motionsense-plugin"
+           path="vendor/hecker/floral/motionsense"
+           remote="hecker-lunaris"
+           revision="refs/heads/fix/xda-improvements-20261108" />
+</manifest>
