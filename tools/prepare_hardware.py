@@ -15,6 +15,36 @@ from google_camera import prepare as prepare_camera, verify_installed as verify_
 FACE = Path("vendor/hecker/floral/faceid")
 MOTION = Path("vendor/hecker/floral/motionsense")
 
+def prepare_lunaris_property_partitions(root):
+    """Keep Lunaris runtime properties outside generic_system.mk's restricted system."""
+    path = root / "vendor/lineage/config/lunaris.mk"
+    original = path.read_text()
+    updated = original
+
+    # Limit the edit to known upstream blocks. Refuse unexpected changes instead
+    # of silently rewriting unrelated system properties.
+    blocks = (
+        ("# Enable blur", "TARGET_LOW_END_BLUR", 2),
+        ("# Quick Switch (Launcher3)", "ifeq ($(SURFACE_FLINGER_BOOST),true)", 3),
+    )
+    old_key = "PRODUCT_SYSTEM_PROPERTIES +="
+    new_key = "PRODUCT_SYSTEM_EXT_PROPERTIES +="
+
+    for start_marker, end_marker, expected in blocks:
+        start = updated.find(start_marker)
+        end = updated.find(end_marker, start + len(start_marker))
+        if start < 0 or end < 0:
+            raise ValueError("Lunaris property block changed: " + start_marker)
+        block = updated[start:end]
+        if block.count(old_key) + block.count(new_key) != expected:
+            raise ValueError("Unexpected Lunaris property assignments: " + start_marker)
+        updated = updated[:start] + block.replace(old_key, new_key) + updated[end:]
+
+    if updated != original:
+        path.write_text(updated)
+    print("PASS: Lunaris blur/launcher props target system_ext.", flush=True)
+
+
 
 def run(root, plugin, script, *args):
     cmd = [sys.executable, str(root / plugin / "tools" / script), *map(str, args)]
@@ -23,6 +53,7 @@ def run(root, plugin, script, *args):
 
 
 def prepare(root, offline=False):
+    prepare_lunaris_property_partitions(root)
     for path in [
         "device/google/coral/lineage_coral.mk",
         "device/google/coral/camera/camera.mk",
