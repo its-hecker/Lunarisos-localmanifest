@@ -46,6 +46,46 @@ def prepare_lunaris_property_partitions(root):
 
 
 
+def prepare_android16_source_compat(root):
+    """Guarded checkout-only repairs for the pinned A16 QPR2 source combination.
+
+    Keep these patches in Lunaris, rather than changing the Face ID or Motion
+    Sense plugin repositories shared with other ROMs. Both are repeat-safe.
+    """
+    patches = (
+        (
+            root / "system/libfmq/include/fmq/MessageQueueBase.h",
+            '''        hardware::details::logDebug(
+                std::format("Read failed after an overflow. Resetting read pointer with preserving "
+                            "{} messages.",
+                            wantToSave / getQuantumSize()));''',
+            '''        hardware::details::logDebug(
+                std::string("Read failed after an overflow. Resetting read pointer with preserving ") +
+                std::to_string(wantToSave / getQuantumSize()) + " messages.");''',
+            "LineageOS FMQ C++17-compatible overflow logging",
+        ),
+        (
+            root / "vendor/hecker/floral/motionsense/settings/src/org/hecker/floral/motionsense/motionsense/MotionSense.java",
+            "        preference.applyIlloColors();",
+            "        // Motion Sense glow tint is applied by the OnBindListener below.",
+            "Lunaris SettingsLib IllustrationPreference API compatibility",
+        ),
+    )
+    for path, old, new, label in patches:
+        original = path.read_text()
+        if old in original:
+            if original.count(old) != 1:
+                raise ValueError("Unexpected repeated source block in " + str(path))
+            path.write_text(original.replace(old, new, 1))
+            print("PATCH: " + label, flush=True)
+        elif new in original:
+            print("PASS: Already compatible: " + label, flush=True)
+        else:
+            raise ValueError(
+                "Upstream source changed; refusing a blind compatibility edit: " + str(path)
+            )
+
+
 def run(root, plugin, script, *args):
     cmd = [sys.executable, str(root / plugin / "tools" / script), *map(str, args)]
     print("+", " ".join(cmd), flush=True)
@@ -64,6 +104,8 @@ def prepare(root, offline=False):
     ]:
         if not (root / path).is_file():
             raise FileNotFoundError("Missing required source: " + path)
+
+    prepare_android16_source_compat(root)
 
     fetch_args = ["--verify-only"] if offline else []
     run(root, FACE, "fetch_prebuilts.py", *fetch_args)
