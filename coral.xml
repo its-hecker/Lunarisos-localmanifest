@@ -16,7 +16,8 @@
   <project name="its-hecker/lunaris-coral-kernel"
            path="kernel/google/msm-4.14"
            remote="hecker-lunaris"
-           revision="refs/heads/lunaris-16.2" />
+           revision="refs/heads/lunaris-16.2"
+           sync-s="true" />
 
   <project name="LineageOS/android_packages_apps_ElmyraService"
            path="packages/apps/ElmyraService"
