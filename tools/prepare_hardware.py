@@ -7,6 +7,7 @@ mutating files if LunarisOS updates to an unreviewed implementation.
 import argparse
 from pathlib import Path
 import subprocess
+import xml.etree.ElementTree as ET
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -44,6 +45,53 @@ def prepare_lunaris_property_partitions(root):
         path.write_text(updated)
     print("PASS: Lunaris blur/launcher props target system_ext.", flush=True)
 
+
+
+def prepare_coral_about_phone(root):
+    """Bake Pixel 4 XL specs into Lunaris Settings-core before Soong compiles it.
+
+    Lunaris Settings is an android_library (Settings-core) statically linked
+    into Settings.apk. An overlay directory alone did not replace its upstream
+    joke defaults on the device, so update only those four guarded strings in
+    this checkout. The device overlay remains the single source of values.
+    """
+    overlay = root / (
+        "device/google/coral/overlay/packages/apps/Settings/"
+        "res/values/lunaris_coral_specs.xml"
+    )
+    settings = root / "packages/apps/Settings/res/values/lunaris_strings.xml"
+    names = {
+        "lunaris_device_message": "ICorn 10 Pro Max",
+        "lunaris_processor_code_message": "Chicken Nuggets® 52",
+        "lunaris_battery_type_message": "15000 mAh",
+        "lunaris_screen_message": "Cathode Ray Tube 24hz",
+    }
+    values = {
+        item.get("name"): item.text
+        for item in ET.parse(overlay).getroot().findall("string")
+    }
+    if set(values) != set(names) or not all(values.values()):
+        raise ValueError("Coral Settings specification overlay is incomplete or changed.")
+
+    original = settings.read_text()
+    updated = original
+    for name, placeholder in names.items():
+        before = f'<string name="{name}">{placeholder}</string>'
+        after = f'<string name="{name}">{values[name]}</string>'
+        if updated.count(before) == 1 and updated.count(after) == 0:
+            updated = updated.replace(before, after, 1)
+        elif updated.count(after) == 1 and updated.count(before) == 0:
+            continue
+        else:
+            raise ValueError(
+                "Unexpected Lunaris Settings string for " + name
+                + "; refusing to modify an unreviewed upstream resource."
+            )
+    if updated != original:
+        settings.write_text(updated)
+        print("PATCH: Coral About Phone specs baked into Lunaris Settings-core.", flush=True)
+    else:
+        print("PASS: Coral About Phone specs already baked into Settings-core.", flush=True)
 
 
 def prepare_android16_source_compat(root):
@@ -105,6 +153,7 @@ def run(root, plugin, script, *args):
 
 def prepare(root, offline=False):
     prepare_lunaris_property_partitions(root)
+    prepare_coral_about_phone(root)
     for path in [
         "device/google/coral/lineage_coral.mk",
         "device/google/coral/camera/camera.mk",
