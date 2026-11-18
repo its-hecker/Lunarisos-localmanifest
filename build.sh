@@ -36,7 +36,12 @@ fi
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 python3 "$here/tools/prepare_hardware.py"
 
+# Lunaris vendor/lineage envsetup generates a random build hostname through
+# cat /dev/urandom | tr ... | head -c 4. The resulting SIGPIPE is expected,
+# but causes this script to exit prematurely under pipefail.
+set +o pipefail
 source build/envsetup.sh
+set -o pipefail
 lunch "lineage_coral-bp4a-${LUNARIS_BUILD_VARIANT:-userdebug}"
 out_product="$(get_build_var PRODUCT_OUT)"
 
