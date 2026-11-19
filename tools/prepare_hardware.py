@@ -103,6 +103,15 @@ def prepare_android16_source_compat(root):
     kernel_types = root / "kernel/google/msm-4.14/include/uapi/linux/types.h"
     if "typedef unsigned __poll_t;" not in kernel_types.read_text():
         raise ValueError("KernelSU poll compatibility requires floral's existing __poll_t typedef.")
+    # This floral kernel lacks path_umount despite KernelSU's optional backport
+    # macro. Keep the fallback patch scoped to this 4.14 checkout rather than
+    # editing the shared pinned KernelSU Next submodule.
+    kernel_namespace = (root / "kernel/google/msm-4.14/fs/namespace.c").read_text()
+    if "path_umount(" in kernel_namespace:
+        raise ValueError(
+            "Floral mount API changed; review KernelSU Next path_umount compatibility."
+        )
+
     patches = (
         (
             root / "system/libfmq/include/fmq/MessageQueueBase.h",
@@ -134,6 +143,18 @@ typedef unsigned int __poll_t;
             '#include <linux/thread_info.h>\n\n#include "uapi/supercall.h"',
             '#include <linux/thread_info.h>\n#include <linux/sched/signal.h>\n\n#include "uapi/supercall.h"',
             "KernelSU Next process-group and tasklist declarations for floral 4.14",
+        ),
+        (
+            root / "kernel/google/msm-4.14/drivers/kernelsu/feature/kernel_umount.c",
+            "#ifndef KSU_HAS_PATH_UMOUNT\n#include <linux/syscalls.h>\n#endif",
+            "#include <linux/syscalls.h>",
+            "KernelSU Next legacy unmount syscall declaration for floral 4.14",
+        ),
+        (
+            root / "kernel/google/msm-4.14/drivers/kernelsu/feature/kernel_umount.c",
+            "#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) ||                           \\\n\tdefined(KSU_HAS_PATH_UMOUNT)",
+            "#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)",
+            "KernelSU Next floral 4.14 uses sys_umount, not absent path_umount",
         ),
     )
     for path, old, new, label in patches:
