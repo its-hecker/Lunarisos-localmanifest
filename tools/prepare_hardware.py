@@ -124,11 +124,15 @@ def prepare_android16_source_compat(root):
     # Restore the upstream capability test when reusing a compiled checkout.
     ksu_umount = kernel_root / "drivers/kernelsu/feature/kernel_umount.c"
     source = ksu_umount.read_text()
-    old_guard = ("#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)\\n"
-                 "extern int path_umount(struct path *path, int flags);")
-    expected_guard = ("#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) ||                           \\\\\n"
-                      "\\tdefined(KSU_HAS_PATH_UMOUNT)\\n"
-                      "extern int path_umount(struct path *path, int flags);")
+    old_guard = (
+        "#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)\n"
+        "extern int path_umount(struct path *path, int flags);"
+    )
+    expected_guard = (
+        "#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) ||                           "
+        + chr(92) + "\n\tdefined(KSU_HAS_PATH_UMOUNT)\n"
+        + "extern int path_umount(struct path *path, int flags);"
+    )
     if old_guard in source and expected_guard not in source:
         source = source.replace(old_guard, expected_guard, 1)
         ksu_umount.write_text(source)
