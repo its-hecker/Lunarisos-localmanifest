@@ -103,14 +103,38 @@ def prepare_android16_source_compat(root):
     kernel_types = root / "kernel/google/msm-4.14/include/uapi/linux/types.h"
     if "typedef unsigned __poll_t;" not in kernel_types.read_text():
         raise ValueError("KernelSU poll compatibility requires floral's existing __poll_t typedef.")
-    # This floral kernel lacks path_umount despite KernelSU's optional backport
-    # macro. Keep the fallback patch scoped to this 4.14 checkout rather than
-    # editing the shared pinned KernelSU Next submodule.
-    kernel_namespace = (root / "kernel/google/msm-4.14/fs/namespace.c").read_text()
-    if "path_umount(" in kernel_namespace:
+    # The floral 4.14 kernel now carries a source-controlled path_umount()
+    # backport. Do not reject it or force KernelSU back onto sys_umount:
+    # KernelSU Next's Kbuild detects this definition and sets its feature flag.
+    kernel_root = root / "kernel/google/msm-4.14"
+    kernel_namespace = (kernel_root / "fs/namespace.c").read_text()
+    kernel_internal = (kernel_root / "fs/internal.h").read_text()
+    ksu_kbuild = (kernel_root / "drivers/kernelsu/Kbuild").read_text()
+    if (kernel_namespace.count("int path_umount(struct path *path, int flags)") != 1
+            or "static int can_umount(const struct path *path, int flags)" not in kernel_namespace
+            or kernel_internal.count("int path_umount(struct path *path, int flags);") != 1
+            or "-DKSU_HAS_PATH_UMOUNT" not in ksu_kbuild):
         raise ValueError(
-            "Floral mount API changed; review KernelSU Next path_umount compatibility."
+            "Missing reviewed floral path_umount backport or KernelSU detection; "
+            "re-sync the Lunaris 16.2 kernel and its KernelSU Next submodule."
         )
+    print("PASS: Floral 4.14 KernelSU path_umount backport detected.", flush=True)
+
+    # A prior preflight could have forced KernelSU's old sys_umount fallback.
+    # Restore the upstream capability test when reusing a compiled checkout.
+    ksu_umount = kernel_root / "drivers/kernelsu/feature/kernel_umount.c"
+    source = ksu_umount.read_text()
+    old_guard = ("#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)\\n"
+                 "extern int path_umount(struct path *path, int flags);")
+    expected_guard = ("#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) ||                           \\\\\n"
+                      "\\tdefined(KSU_HAS_PATH_UMOUNT)\\n"
+                      "extern int path_umount(struct path *path, int flags);")
+    if old_guard in source and expected_guard not in source:
+        source = source.replace(old_guard, expected_guard, 1)
+        ksu_umount.write_text(source)
+        print("PATCH: Restored KernelSU path_umount capability detection.", flush=True)
+    elif expected_guard not in source:
+        raise ValueError("Unexpected KernelSU Next mount compatibility source.")
 
     patches = (
         (
@@ -143,18 +167,6 @@ typedef unsigned int __poll_t;
             '#include <linux/thread_info.h>\n\n#include "uapi/supercall.h"',
             '#include <linux/thread_info.h>\n#include <linux/sched/signal.h>\n\n#include "uapi/supercall.h"',
             "KernelSU Next process-group and tasklist declarations for floral 4.14",
-        ),
-        (
-            root / "kernel/google/msm-4.14/drivers/kernelsu/feature/kernel_umount.c",
-            "#ifndef KSU_HAS_PATH_UMOUNT\n#include <linux/syscalls.h>\n#endif",
-            "#include <linux/syscalls.h>",
-            "KernelSU Next legacy unmount syscall declaration for floral 4.14",
-        ),
-        (
-            root / "kernel/google/msm-4.14/drivers/kernelsu/feature/kernel_umount.c",
-            "#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) ||                           \\\n\tdefined(KSU_HAS_PATH_UMOUNT)",
-            "#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)",
-            "KernelSU Next floral 4.14 uses sys_umount, not absent path_umount",
         ),
     )
     for path, old, new, label in patches:
