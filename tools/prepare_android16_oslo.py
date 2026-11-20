@@ -6,12 +6,14 @@ LunarisOS 16.2 exposes Java's static PluginDependency.get(). Retain the
 checksum-pinned original APK and rebuild only this Lunaris-specific variant.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import urllib.request
 import zipfile
 
 REPOSITORY = "its-hecker/infinity_OsloFeedback"
@@ -42,21 +44,68 @@ def patch_smali(original):
     return result
 
 
+APKEDITOR_VERSION = "1.4.9"
+APKEDITOR_NAME = f"APKEditor-{APKEDITOR_VERSION}.jar"
+APKEDITOR_URL = (
+    f"https://github.com/REAndroid/APKEditor/releases/download/"
+    f"V{APKEDITOR_VERSION}/{APKEDITOR_NAME}"
+)
+# Pinned bytes for REAndroid/APKEditor V1.4.9 release asset.
+APKEDITOR_SHA256 = "a9cd40df818845456be6d696de6110c89edf4b0a0580cb83438ed6b25a366e67"
+APKEDITOR_SIZE = 7733037
+
+
+def verify_jar(path):
+    if path.stat().st_size != APKEDITOR_SIZE:
+        raise ValueError(f"APKEditor {APKEDITOR_VERSION} size mismatch: {path}")
+    if hashlib.sha256(path.read_bytes()).hexdigest() != APKEDITOR_SHA256:
+        raise ValueError(f"APKEditor {APKEDITOR_VERSION} SHA-256 mismatch: {path}")
+    with zipfile.ZipFile(path) as archive:
+        if archive.testzip() is not None:
+            raise ValueError("APKEditor archive CRC verification failed")
+
+
 def choose_jar(root):
     env = os.environ.get("APK_EDITOR_JAR")
     choices = [Path(env).expanduser()] if env else [
-        root / "tools/APKEditor-1.4.9.jar",
-        Path.home() / "tools/APKEditor-1.4.9.jar",
-        Path.home() / "APKEditor-1.4.9.jar",
+        root / "tools" / APKEDITOR_NAME,
+        Path.home() / "tools" / APKEDITOR_NAME,
+        Path.home() / APKEDITOR_NAME,
     ]
     for candidate in choices:
         if candidate.is_file():
+            verify_jar(candidate)
+            print(f"Verified APKEditor {APKEDITOR_VERSION}: {candidate}", flush=True)
             return candidate.resolve()
-    raise FileNotFoundError(
-        "APKEditor 1.4.9 required. Get the official REAndroid APKEditor "
-        "1.4.9 jar and export APK_EDITOR_JAR=/absolute/path/to/APKEditor-1.4.9.jar"
-    )
+    if env:
+        raise FileNotFoundError(f"APK_EDITOR_JAR points to a missing file: {env}")
 
+    target = Path.home() / "tools" / APKEDITOR_NAME
+    target.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading pinned APKEditor {APKEDITOR_VERSION} from REAndroid...", flush=True)
+    with tempfile.NamedTemporaryFile(prefix=".apkeditor-", dir=target.parent,
+                                     delete=False) as staged:
+        temporary = Path(staged.name)
+        try:
+            request = urllib.request.Request(APKEDITOR_URL, headers={
+                "User-Agent": "LunarisOS-Android16-Oslo-build"
+            })
+            with urllib.request.urlopen(request, timeout=120) as response:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    staged.write(chunk)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+    try:
+        verify_jar(temporary)
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    print(f"Verified APKEditor {APKEDITOR_VERSION}: {target}", flush=True)
+    return target.resolve()
 
 def prepare(root):
     root = root.resolve()
