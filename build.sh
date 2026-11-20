@@ -33,7 +33,7 @@ if ! grep -Fxq "$expected_oslo" "$oslo_policy"; then
   echo "Expected: $expected_oslo" >&2
   echo "Found:" >&2
   sed -n '1,8p' "$oslo_policy" >&2
-  echo "Re-sync the wip/android16-hardware-features device tree before building." >&2
+  echo "Re-sync the main Coral device tree before building." >&2
   exit 1
 fi
 if [[ "${LUNARIS_BUILD_VARIANT:-userdebug}" != "user" ]]; then

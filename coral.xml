@@ -6,17 +6,17 @@
   <project name="its-hecker/lunairs-coral-dt"
            path="device/google/coral"
            remote="hecker-lunaris"
-           revision="refs/heads/wip/android16-hardware-features" />
+           revision="refs/heads/main" />
 
   <project name="its-hecker/lunaris-coral-vendor"
            path="vendor/google/coral"
            remote="hecker-lunaris"
-           revision="refs/heads/lunaris-16.2" />
+           revision="refs/heads/main" />
 
   <project name="its-hecker/lunaris-coral-kernel"
            path="kernel/google/msm-4.14"
            remote="hecker-lunaris"
-           revision="refs/heads/lunaris-16.2"
+           revision="refs/heads/main"
            sync-s="true" />
 
   <project name="LineageOS/android_packages_apps_ElmyraService"

@@ -1,17 +1,16 @@
-# LunarisOS 16.2 for Pixel 4 XL (coral) — Android 16 hardware feature branch
+# LunarisOS 16.2 for Pixel 4 XL (coral) — Android 16 hardware integration
 
-This `feat/android16-hardware-features` manifest selects the experimental Coral
-device tree with 3D Face Unlock, Motion Sense and original Google Camera
-packaging. The ordinary `main` manifest and `lunaris-16.2` device tree remain
-unchanged for builders who want the previous base.
+The `main` manifest now selects the Coral device tree with 3D Face Unlock,
+Motion Sense and original Google Camera packaging. The device tree, vendor and
+kernel sources have been integrated into their corresponding `main` branches.
+The previous feature branches remain available for historical reference.
 
 ## Source and integration
 
 - LunarisOS: `Lunaris-AOSP/android` branch `16.2` (Android 16 QPR2).
-- Device: `its-hecker/lunairs-coral-dt` branch
-  `wip/android16-hardware-features`, based on LineageOS 23.2.
-- Vendor: `its-hecker/lunaris-coral-vendor` branch `lunaris-16.2`.
-- Kernel: `its-hecker/lunaris-coral-kernel` branch `lunaris-16.2`,
+- Device: `its-hecker/lunairs-coral-dt` branch `main`, based on LineageOS 23.2.
+- Vendor: `its-hecker/lunaris-coral-vendor` branch `main`.
+- Kernel: `its-hecker/lunaris-coral-kernel` branch `main`,
   with KernelSU Next's legacy 4.14 submodule.
 - Face: the pinned `floral-3D-faceid-plugin` source and its verified legacy
   Face HAL, Citadel and camera libraries; the exact HIDL framework patch sites
@@ -29,7 +28,7 @@ unchanged for builders who want the previous base.
 mkdir -p ~/lunaris-coral
 cd ~/lunaris-coral
 repo init -u https://github.com/Lunaris-AOSP/android.git -b 16.2 --git-lfs
-git clone -b feat/android16-hardware-features https://github.com/its-hecker/Lunarisos-localmanifest.git .repo/local_manifests
+git clone -b main https://github.com/its-hecker/Lunarisos-localmanifest.git .repo/local_manifests
 repo sync -c --fail-fast --no-clone-bundle --no-tags -j4
 bash .repo/local_manifests/build.sh 2>&1 | tee ~/lunaris-coral-hardware.log
 ```
@@ -58,4 +57,4 @@ Test Face enrollment, screen unlock and removal; reach/silence/skip gestures,
 country settings and sensor permission; and still/photo/portrait/video/flash
 in Google Camera. Collect `adb logcat -b all` if one feature fails.
 
-The 4.14 KernelSU Next implementation is unchanged by this feature branch.
+The 4.14 KernelSU Next implementation is unchanged by this branch consolidation.
