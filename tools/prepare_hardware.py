@@ -213,6 +213,10 @@ def prepare(root, offline=False):
     fetch_args = ["--verify-only"] if offline else []
     run(root, FACE, "fetch_prebuilts.py", *fetch_args)
     run(root, MOTION, "fetch_prebuilts.py", *fetch_args)
+    # Infinity-X ships Android 17 Kotlin PluginDependency.INSTANCE.get(), but
+    # LunarisOS 16.2 uses the Java static PluginDependency.get() method.
+    # Otherwise OsloOverlay crashes SystemUI when airplane mode is disabled.
+    run(root, Path(".repo/local_manifests"), "prepare_android16_oslo.py", "--rom-root", root)
     run(root, FACE, "apply_framework_fixes.py", "--rom-root", root, "--check")
     run(root, FACE, "apply_framework_fixes.py", "--rom-root", root, "--apply")
     run(root, FACE, "prepare.py", "--rom-root", root, "--vendor-tree",
@@ -280,9 +284,30 @@ def verify_motion_sense_build_properties(output):
     print("PASS: Built vendor Soli support and product country override.", flush=True)
 
 
+def verify_android16_oslo_prebuilt(root, output):
+    """Ensure the packaged Oslo DEX came from our A16-compatible rebuild."""
+    import zipfile
+    motion = root / "vendor/hecker/floral/motionsense"
+    bp = (motion / "Android.bp").read_text()
+    if 'apk: "generated/lunaris16/OsloFeedback.apk"' not in bp:
+        raise ValueError("Built product selected the Android 17 Oslo APK")
+    original = motion / "generated/lunaris16/OsloFeedback.apk"
+    installed = output / "system_ext/priv-app/FloralOsloFeedback/FloralOsloFeedback.apk"
+    if not installed.is_file():
+        matches = list((output / "system_ext").rglob("FloralOsloFeedback.apk"))
+        if len(matches) != 1:
+            raise FileNotFoundError("Expected exactly one packaged FloralOsloFeedback APK")
+        installed = matches[0]
+    with zipfile.ZipFile(original) as prepared, zipfile.ZipFile(installed) as built:
+        if prepared.read("classes.dex") != built.read("classes.dex"):
+            raise ValueError("Packaged Oslo DEX does not match the A16-compatible APK")
+    print("PASS: Packaged OsloFeedback contains the Android 16-compatible DEX.", flush=True)
+
+
 def verify_output(root, product_out):
     output = product_out.resolve()
     verify_motion_sense_build_properties(output)
+    verify_android16_oslo_prebuilt(root, output)
     verify_camera(root, output)
     verify_coral_about_phone_output(root, output)
     face = output / "vendor/bin/hw/android.hardware.biometrics.face@1.0-service.google"
